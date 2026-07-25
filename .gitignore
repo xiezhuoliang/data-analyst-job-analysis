@@ -1,0 +1,8 @@
+config.py
+detail_crawled.txt
+debug_detail.html
+data/raw/
+data/cleaned/
+__pycache__/
+venv/
+*.pyc
