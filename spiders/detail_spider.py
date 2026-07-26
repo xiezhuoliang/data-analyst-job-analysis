@@ -10,8 +10,8 @@ OUTPUT_FILE = "51job_数据分析_完整版.csv"
 CHECKPOINT_FILE = "detail_crawled.txt"
 BATCH_LIMIT = 0                # 0=刷完为止
 DELAY_MIN, DELAY_MAX = 5, 10
-COOLDOWN_EVERY = 55            # 每55条主动冷却3分钟（防验证）
-COOLDOWN_SEC = 180
+BATCH_SIZE = 20
+BATCH_REST_MIN, BATCH_REST_MAX = 20, 40
 # ==========================
 
 driver_path = None
@@ -25,6 +25,7 @@ for p in [os.path.join(os.path.dirname(__file__), "drivers", "msedgedriver.exe")
 if not driver_path:
     raise FileNotFoundError("找不到 msedgedriver.exe")
 
+# CDP 接管调试模式打开的 Edge
 options = EdgeOptions()
 options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
 driver = webdriver.Edge(service=EdgeService(driver_path), options=options)
@@ -54,7 +55,7 @@ def extract_detail(html):
 
     desc_text = ""
 
-    # 方案1（优先）：51job 标准正文容器
+    # 方案1（优先）：直接找 51job 标准正文容器
     box = (soup.select_one("div.bmsg.job_msg.inbox") or
            soup.select_one("div.bmsg.job_msg") or
            soup.select_one(".job_msg"))
@@ -73,7 +74,7 @@ def extract_detail(html):
                     break
                 sib = sib.find_next_sibling()
 
-    # 方案3兜底：含关键词的最小容器
+    # 方案3兜底：找含关键词的最小容器
     if not desc_text:
         cands = []
         for d in soup.find_all("div"):
@@ -108,6 +109,7 @@ def extract_detail(html):
     return result
 
 def flush(all_jobs, fieldnames):
+    """全量重写，每条都调用"""
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
@@ -121,6 +123,15 @@ def main():
     print(f"[*] 共 {len(all_jobs)} 条 | 已爬 {len(crawled)} 条 | 待爬 {len(all_jobs)-len(crawled)} 条")
 
     driver.switch_to.new_window("tab")
+    print("[*] 先打开第一条链接测试...")
+    first = next(j for j in all_jobs if j.get("详情链接") and j["详情链接"] not in crawled)
+    driver.get(first["详情链接"])
+    time.sleep(4)
+    if "验证" in driver.title:
+        print("[!] 触发验证，请手动滑动完成，完成后按回车开始...")
+        input()
+    else:
+        print("[✓] 正常打开，开始批量抓取")
 
     success = 0
     empty = 0
@@ -134,26 +145,41 @@ def main():
             print(f"\n[*] 本批 {BATCH_LIMIT} 条完成，停止")
             break
 
-        # 主动冷却：每55条歇3分钟，防触发验证
-        if success > 0 and success % COOLDOWN_EVERY == 0:
-            print(f"\n[*] 已爬 {success} 条，主动冷却 {COOLDOWN_SEC//60} 分钟防验证...")
-            time.sleep(COOLDOWN_SEC)
-
         delay = random.uniform(DELAY_MIN, DELAY_MAX)
         print(f"\n[*] [{i}] 等待 {delay:.1f} 秒...", end=" ")
         time.sleep(delay)
 
-        driver.get(link)
+        try:
+            driver.get(link)
+        except Exception as e:
+            print(f"页面加载异常: {e}，跳过")
+            job.update({"职位描述": "", "任职要求": "", "福利标签": ""})
+            save_crawled(link)
+            flush(all_jobs, fieldnames)
+            continue
+
         if "验证" in driver.title:
-            print("触发验证！请：1)关掉这个标签页 2)手动新开一个详情页滑过真验证 3)回这里按回车")
+            print("触发验证！先保存当前进度...")
+            job.update({"职位描述": "", "任职要求": "", "福利标签": ""})
+            save_crawled(link)
+            flush(all_jobs, fieldnames)
+            print("已保存。请：1)关掉这个标签页 2)手动新开一个详情页滑过真验证 3)回这里按回车继续")
             input()
             time.sleep(2)
-            continue   # 这条不记断点，明天/下轮再补
+            continue
 
         time.sleep(random.uniform(1.5, 3))
         human_scroll()
 
-        html = driver.page_source
+        try:
+            html = driver.page_source
+        except Exception as e:
+            print(f"获取页面源码异常: {e}，跳过")
+            job.update({"职位描述": "", "任职要求": "", "福利标签": ""})
+            save_crawled(link)
+            flush(all_jobs, fieldnames)
+            continue
+
         detail = extract_detail(html)
 
         if not detail["职位描述"]:
@@ -163,8 +189,13 @@ def main():
         job.update(detail)
         success += 1
         save_crawled(link)
-        flush(all_jobs, fieldnames)   # 每条都落盘，中断不丢
-        print(f"成功 | 描述{len(detail['职位描述'])}字 | 累计{success}条")
+        flush(all_jobs, fieldnames)   # 每条都落盘
+        print(f"成功 | 描述{len(detail['职位描述'])}字")
+
+        if success % BATCH_SIZE == 0:
+            rest = random.uniform(BATCH_REST_MIN, BATCH_REST_MAX)
+            print(f"[*] 已爬 {success} 条，休息 {rest:.0f} 秒")
+            time.sleep(rest)
 
     print(f"\n[✓] 完成 {success} 条（其中空 {empty} 条）| 耗时 {(time.time()-start)/60:.1f} 分钟")
     print(f"[✓] 累计进度：{len(load_crawled())}/{len(all_jobs)}")
@@ -172,5 +203,11 @@ def main():
 
 try:
     main()
+except KeyboardInterrupt:
+    print("\n[!] 用户中断，进度已保存")
+except Exception as e:
+    print(f"\n[!] 程序异常: {e}")
+    import traceback
+    traceback.print_exc()
 finally:
     input("\n[*] 按回车结束（调试 Edge 不会被关）...")
