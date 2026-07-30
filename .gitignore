@@ -1,8 +1,32 @@
+# 爬虫敏感文件与过程文件
 config.py
 detail_crawled.txt
 debug_detail.html
+spiders/logs/
+spiders/temp/
+
+# 数据文件（中间/最终数据不推仓库，只推代码）
 data/raw/
 data/cleaned/
+data/interim/
+data/processed/
+
+# Python
 __pycache__/
-venv/
 *.pyc
+*.pyo
+venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db
