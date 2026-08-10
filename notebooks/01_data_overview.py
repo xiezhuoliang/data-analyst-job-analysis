@@ -1,4 +1,10 @@
-# ===== 全局设置与数据加载 =====
+# -*- coding: utf-8 -*-
+"""
+01_data_overview.py — 数据概览
+输入 : data/processed/jobs_clean.csv（终表 681×29）
+输出 : docs/charts/0-1 ~ 0-4 共四张图（数据漏斗、经验/学历分布、发布月份、字段缺失率）
+口径 : 全样本 n=681；薪资相关口径（n=671）在 salary_df() 中统一定义
+"""
 import os
 import pandas as pd
 import numpy as np
@@ -57,7 +63,7 @@ ax.spines[['top', 'right']].set_visible(False)
 plt.tight_layout(rect=[0, 0.08, 1, 0.9])
 finish_fig(fig, f'三级收敛：{vals[0] / vals[2] * 100:.0f}% 的采集数据进入最终分析集',
            '原始 1495 → 去重 1270（-225）→ 终表 681（noise 586 条剔除）',
-           CHART_DIR + '/0-1_funnel.png')
+           CHART_DIR + '/1-1_funnel.png')
 
 # ===== 图0-2 经验/学历分布 =====
 exp_order = ['应届/无需经验', '1-3年', '3-5年', '5-10年', '10年以上']
@@ -79,7 +85,7 @@ for ax, cnt, ttl in [(ax1, ec, '经验档位分布'), (ax2, uc, '学历层级分
 plt.tight_layout(rect=[0, 0.06, 1, 0.9])
 finish_fig(fig, '市场以 1-3 年经验、本科学历岗位为绝对主力',
            f'n=681｜学历缺失 {df["学历层级"].isna().sum()} 条',
-           CHART_DIR + '/0-2_exp_edu.png')
+           CHART_DIR + '/1-2_exp_edu.png')
 
 # ===== 图0-3 发布月份分布 =====
 t = pd.to_datetime(df['发布时间'], errors='coerce')
@@ -95,7 +101,7 @@ ax.spines[['top', 'right']].set_visible(False)
 plt.tight_layout(rect=[0, 0.08, 1, 0.9])
 finish_fig(fig, '在架岗位以 2026 年 6-7 月发布为主，岗位新鲜度高',
            f'n={int(mc.sum())}｜爬取时点（2026-07）仍在架岗位画像，不代表市场招聘量趋势',
-           CHART_DIR + '/0-3_timeline.png')
+           CHART_DIR + '/1-3_timeline.png')
 
 # ===== 图0-4 关键字段缺失率 =====
 key_cols = ['月薪中位(万)', '经验下限(年)', '学历层级',
@@ -114,4 +120,4 @@ ax.spines[['top', 'right']].set_visible(False)
 plt.tight_layout(rect=[0, 0.08, 1, 0.9])
 finish_fig(fig, '核心字段基本完整，缺失集中在任职要求与福利文本',
            'n=681｜缺失集中于组4/组5 采集失败链接；文本类分析以有值样本为口径',
-           CHART_DIR + '/0-4_missing.png')
+           CHART_DIR + '/1-4_missing.png')
