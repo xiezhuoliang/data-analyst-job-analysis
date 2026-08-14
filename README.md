@@ -104,3 +104,4 @@ python src/run_all.py        # 数据管线一键复现
 - [开发日志](docs/logs/)：2026-07-24 ~ 2026-08-14，逐日记录
 - [质检报告](docs/quality_report.md)：两轮质检 + 六项终检
 - [可视化方案](docs/visualization_plan.md)：6 大主题 25 图的设计与口径规则
+- [分析报告](docs/analysis_report.md)：完整分析结论与建议
