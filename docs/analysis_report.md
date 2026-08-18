@@ -125,5 +125,5 @@
 ## 六、附录
 
 - 复现：`pip install -r requirements.txt` → `python src/run_all.py` → 按编号运行 `notebooks/`
-- 全部图表：`docs/charts/`（25 张）；聚合数据：`docs/aggregates/`
+- 全部图表：`docs/charts/`（22 张）；聚合数据：`docs/aggregates/`
 - 过程文档：[可视化方案](visualization_plan.md)（含实施校准）、[质检报告](quality_report.md)、[开发日志](logs/)
